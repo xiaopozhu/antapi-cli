@@ -94,7 +94,6 @@ Repeating the same inputs verifies and reuses the existing files; mismatched inp
 
 ## Coordinated releases
 
-[AntAPI](https://github.com/xiaopozhu/antapi) coordinates independently versioned API, CLI, and Skills releases: API/Gateway acceptance → CLI → Skills → website. The WHOIS Skill supports stable CLI `>=0.1.0 <1.0.0`. CI is read-only and does not publish on push or tag.
+The `antapi-release` maintainer Skill in [antapi-skills](https://github.com/xiaopozhu/antapi-skills) coordinates independently versioned API, CLI, and Skills using a frozen release folder: client candidates or verified compatible releases → manual Admin activation. New endpoints awaiting activation default to Draft Releases. Docker deployment is a separate operator action; the website is rebuilt after Catalog publication. The WHOIS Skill supports stable CLI `>=0.1.0 <1.0.0`. CI is read-only and does not publish on push or tag.
 
-- [Release design](https://github.com/xiaopozhu/antapi/blob/main/docs/design/coordinated-product-release.md)
-- [Implementation plan](https://github.com/xiaopozhu/antapi/blob/main/docs/superpowers/plans/2026-10-22-coordinated-product-release.md)
+- Current runbook: AntAPI `docs/ops/api-release-skill.md` (available remotely once the local implementation is published).

@@ -95,7 +95,6 @@ Tar 根成员为 `antapi`，ZIP 根成员为 `antapi.exe`。`SHA256SUMS` 包含�
 
 ## 协同发布
 
-三个仓库独立开发、独立版本，由 [antapi](https://github.com/xiaopozhu/antapi) 维护批次组合与总入口。API/Gateway 验收后发布 CLI，再发布依赖 CLI `>=0.1.0 <1.0.0` 的 WHOIS Skill；版本范围是实现目标，尚非已发布声明。CI 只读，不在 push/tag 时自动发布，不创建生产凭据。
+三个仓库独立版本，由 `antapi-skills` 的 `antapi-release` 维护 Skill 以冻结发布包协调：客户端候选或已验证兼容的正式版本 → 手动 Admin 生效。新接口尚未生效时默认 Draft Release；Docker 部署由操作者另外完成，Catalog 发布后重建官网。WHOIS Skill 依赖 CLI `>=0.1.0 <1.0.0`，尚非已发布声明。CI 只验证，不在 push/tag 时自动发布。
 
-- [三仓库协同发布设计](https://github.com/xiaopozhu/antapi/blob/main/docs/design/coordinated-product-release.md)
-- [实施计划](https://github.com/xiaopozhu/antapi/blob/main/docs/superpowers/plans/2026-10-22-coordinated-product-release.md)
+- 操作约定：主仓库 `docs/ops/api-release-skill.md`（本地实现进入远端后可从远端查阅）
