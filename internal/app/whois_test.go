@@ -237,10 +237,11 @@ func TestDefaultConfigAndNonsecretOverrides(t *testing.T) {
 	defer s.Close()
 	config := setupProfile(t, "https://unused.invalid", 5)
 	root := t.TempDir()
-	os.Mkdir(filepath.Join(root, "antapi"), 0700)
+	os.Mkdir(filepath.Join(root, ".antapi"), 0700)
 	data, _ := os.ReadFile(config)
-	os.WriteFile(filepath.Join(root, "antapi", "config.json"), data, 0600)
-	t.Setenv("XDG_CONFIG_HOME", root)
+	os.WriteFile(filepath.Join(root, ".antapi", "config.json"), data, 0600)
+	setHome(t, root)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var stdout, stderr bytes.Buffer
 	code := Run(context.Background(), []string{"antapi", "--profile", "local", "--gateway-url", s.URL, "whois", "tlds", "--json"}, &stdout, &stderr, BuildInfo{})
 	if code != 0 {

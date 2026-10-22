@@ -26,7 +26,7 @@ antapi --profile local whois tlds --json
 
 ## 配置和凭据
 
-配置默认在 `$XDG_CONFIG_HOME/antapi/config.json`；未设置时使用 Go `os.UserConfigDir()` 下的 `antapi/config.json`：Linux 通常为 `~/.config`，macOS 为 `~/Library/Application Support`，Windows 为 `%AppData%`。`--config` 可覆盖路径。示例：
+配置默认在 `$HOME/.antapi/config.json`（Windows 为 `%USERPROFILE%\.antapi\config.json`），不受 `XDG_CONFIG_HOME` 影响。`--config` 可覆盖路径；文件凭据从所选配置同目录的 `credentials.json` 读取。示例：
 
 ```json
 {
@@ -93,8 +93,6 @@ candidate/
 
 Tar 根成员为 `antapi`，ZIP 根成员为 `antapi.exe`。`SHA256SUMS` 包含五个 archive 摘要；manifest 包含 `schema_version`、`version`、`commit`、`built_at`、`go_version` 与 `artifacts:[{name,sha256,os,arch}]`。再次运行相同输入只核验并复用既有附件，不重新编译；任何摘要、输入或文件集合冲突均拒绝。协调发布直接使用此 candidate，发布阶段不得重建。
 
-## 协同发布
+## 版本发布
 
-三个仓库独立版本，由 `antapi-skills` 的 `antapi-release` 维护 Skill 以冻结发布包协调：客户端候选或已验证兼容的正式版本 → 手动 Admin 生效。新接口尚未生效时默认 Draft Release；Docker 部署由操作者另外完成，Catalog 发布后重建官网。WHOIS Skill 依赖 CLI `>=0.1.0 <1.0.0`，尚非已发布声明。CI 只验证，不在 push/tag 时自动发布。
-
-- 操作约定：主仓库 `docs/ops/api-release-skill.md`（本地实现进入远端后可从远端查阅）
+API、CLI 和产品 Skills 独立版本。升级前核对 Skill 声明的 CLI 兼容范围；WHOIS Skill 支持稳定 CLI `>=0.1.0 <1.0.0`。发布归档固定源码 commit 与校验和。CI 只验证，不在 push/tag 时自动发布。

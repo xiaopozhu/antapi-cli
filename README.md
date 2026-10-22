@@ -26,7 +26,7 @@ Unicode and Punycode domains are supported, including Unicode dot separators (`ã
 
 ## Configuration
 
-The default configuration is `$XDG_CONFIG_HOME/antapi/config.json` when set, otherwise `antapi/config.json` under Go's `os.UserConfigDir()`: typically `~/.config` on Linux, `~/Library/Application Support` on macOS, and `%AppData%` on Windows. Use `--config` to override the path.
+The default configuration is `$HOME/.antapi/config.json` (`%USERPROFILE%\.antapi\config.json` on Windows). `XDG_CONFIG_HOME` does not change this location. Use `--config` to override the path; file-based credentials are read from `credentials.json` beside the selected config file.
 
 Example local development profile:
 
@@ -92,8 +92,6 @@ Targets: macOS and Linux on amd64/arm64, plus Windows on amd64. Archives are nam
 
 Repeating the same inputs verifies and reuses the existing files; mismatched inputs, hashes, or file sets fail. Packaging does not create tags or publish releases. See the [Chinese README](README.zh-CN.md) for the complete artifact layout.
 
-## Coordinated releases
+## Releases
 
-The `antapi-release` maintainer Skill in [antapi-skills](https://github.com/xiaopozhu/antapi-skills) coordinates independently versioned API, CLI, and Skills using a frozen release folder: client candidates or verified compatible releases â†’ manual Admin activation. New endpoints awaiting activation default to Draft Releases. Docker deployment is a separate operator action; the website is rebuilt after Catalog publication. The WHOIS Skill supports stable CLI `>=0.1.0 <1.0.0`. CI is read-only and does not publish on push or tag.
-
-- Current runbook: AntAPI `docs/ops/api-release-skill.md` (available remotely once the local implementation is published).
+API, CLI, and product Skills use independent versions. Check the product Skill's declared CLI compatibility before upgrading; the WHOIS Skill supports stable CLI `>=0.1.0 <1.0.0`. Release archives pin a source commit and checksums. CI validates changes and does not publish automatically on push or tag.

@@ -33,15 +33,11 @@ type runtimeConfig struct {
 var errConfiguration = errors.New("configuration")
 
 func defaultConfigPath() (string, error) {
-	root := os.Getenv("XDG_CONFIG_HOME")
-	if root == "" {
-		var err error
-		root, err = os.UserConfigDir()
-		if err != nil {
-			return "", errConfiguration
-		}
+	root, err := os.UserHomeDir()
+	if err != nil {
+		return "", errConfiguration
 	}
-	return filepath.Join(root, "antapi", "config.json"), nil
+	return filepath.Join(root, ".antapi", "config.json"), nil
 }
 
 func readJSON(path string, target any) error {
