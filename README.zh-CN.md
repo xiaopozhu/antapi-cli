@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AntAPI 官方本地客户端，供终端用户、自动化脚本和 `antapi-skills` 使用。平台 AK 与 Credits 沿用 Gateway 合同，不访问 Core 私有接口、数据库或 Own API 内网。
+AntAPI 官方本地客户端，供终端用户和自动化脚本使用；产品 Skills 可以独立安装。平台 AK 与 Credits 沿用 Gateway 合同，不访问 Core 私有接口、数据库或 Own API 内网。
 
 ## 当前状态
 
@@ -13,10 +13,12 @@ AntAPI 官方本地客户端，供终端用户、自动化脚本和 `antapi-skil
 ```bash
 antapi --help
 antapi version --json
-antapi --profile local whois lookup example.com --json
-antapi --profile local whois lookup 例子.中国 --json
-antapi --profile local whois tlds --json
+antapi whois lookup example.com --json
+antapi whois lookup 例子.中国 --json
+antapi whois tlds --json
 ```
+
+官方服务只需在本机私下配置 `ANTAPI_API_KEY`。CLI 默认使用 `https://api.antapi.dev`，无需先创建配置文件。
 
 `--config PATH`、`--profile NAME`、`--gateway-url ORIGIN`、`--core-url ORIGIN` 为非敏感配置覆盖。推荐放在 `whois` 前。AK 不接受命令参数；通过私密运行环境注入 `ANTAPI_API_KEY`，不要把真实值放入 shell 历史。
 
@@ -26,7 +28,7 @@ antapi --profile local whois tlds --json
 
 ## 配置和凭据
 
-配置默认在 `$HOME/.antapi/config.json`（Windows 为 `%USERPROFILE%\.antapi\config.json`），不受 `XDG_CONFIG_HOME` 影响。`--config` 可覆盖路径；文件凭据从所选配置同目录的 `credentials.json` 读取。示例：
+可选的 Profile 配置默认在 `$HOME/.antapi/config.json`（Windows 为 `%USERPROFILE%\.antapi\config.json`），不受 `XDG_CONFIG_HOME` 影响。`--config` 可覆盖路径；文件凭据从所选配置同目录的 `credentials.json` 读取。以下为本地开发配置示例：
 
 ```json
 {
@@ -42,7 +44,7 @@ antapi --profile local whois tlds --json
 }
 ```
 
-正式 profile 使用 HTTPS origin，不内嵌未经核实的生产域名。HTTP 仅在显式 `development: true` 且 hostname 为 localhost 或 loopback IP 时允许。Origin 必须有 hostname，显式端口范围为 1–65535，不含用户信息、路径（单独 `/` 可用）、query 或 fragment。请求不跟随重定向，30 秒默认超时（允许 1–120 秒），响应上限 1 MiB；收费与免费请求均不自动重试；Transport 显式限制为 HTTP/1 并禁用连接复用，避免 HTTP/2 REFUSED_STREAM 等透明重发。超时或断开不能推断未执行，需从 Console 检查平台记录。
+官方 Gateway 固定为 `https://api.antapi.dev`；仅在选择其他环境时使用 `--gateway-url` 或 Profile 覆盖。显式配置文件缺失、损坏或 Profile 不存在仍报错。HTTP 仅在显式 `development: true` 且 hostname 为 localhost 或 loopback IP 时允许。Origin 必须有 hostname，显式端口范围为 1–65535，不含用户信息、路径（单独 `/` 可用）、query 或 fragment。请求不跟随重定向，30 秒默认超时（允许 1–120 秒），响应上限 1 MiB；收费与免费请求均不自动重试；Transport 显式限制为 HTTP/1 并禁用连接复用，避免 HTTP/2 REFUSED_STREAM 等透明重发。超时或断开不能推断未执行，需从 Console 检查平台记录。
 
 `ANTAPI_API_KEY` 优先于配置文件同目录的 `credentials.json`；凭据文件必须为常规文件且权限精确为 `0600`，不接受符号链接。格式如下，示例占位符必须替换为本人授权的 AK，文件不得提交：
 

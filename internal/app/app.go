@@ -82,6 +82,11 @@ func whoisCommand(stdout io.Writer, usageError cli.OnUsageErrorFunc) *cli.Comman
 					return invalid()
 				}
 			}
+			for _, name := range []string{"config", "profile"} {
+				if command.IsSet(name) && command.String(name) == "" {
+					return invalid()
+				}
+			}
 			config, err := loadConfig(command.String("config"), command.String("profile"), command.String("gateway-url"), command.String("core-url"))
 			if err != nil {
 				return &runtimeError{Code: i18n.ConfigurationError}

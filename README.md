@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-The official AntAPI command-line client for terminal users, scripts, and [AntAPI Skills](https://github.com/xiaopozhu/antapi-skills). It uses your platform API key and Credits through the public Gateway.
+The official AntAPI command-line client for terminal users and scripts; [AntAPI Skills](https://github.com/xiaopozhu/antapi-skills) can be installed independently. It uses your platform API key and Credits through the public Gateway.
 
 ## Status
 
@@ -13,10 +13,12 @@ WHOIS lookup, TLD coverage, profiles, JSON output, and five-platform release-can
 ```bash
 antapi --help
 antapi version --json
-antapi --profile local whois lookup example.com --json
-antapi --profile local whois lookup 例子.中国 --json
-antapi --profile local whois tlds --json
+antapi whois lookup example.com --json
+antapi whois lookup 例子.中国 --json
+antapi whois tlds --json
 ```
+
+Configure only `ANTAPI_API_KEY` privately in your local environment. The CLI defaults to `https://api.antapi.dev` and needs no configuration file for the official service.
 
 Root flags `--config PATH`, `--profile NAME`, `--gateway-url ORIGIN`, and `--core-url ORIGIN` override non-secret settings. Put them before `whois`. API keys are never command-line arguments.
 
@@ -26,7 +28,7 @@ Unicode and Punycode domains are supported, including Unicode dot separators (`�
 
 ## Configuration
 
-The default configuration is `$HOME/.antapi/config.json` (`%USERPROFILE%\.antapi\config.json` on Windows). `XDG_CONFIG_HOME` does not change this location. Use `--config` to override the path; file-based credentials are read from `credentials.json` beside the selected config file.
+For optional profiles and overrides, the default configuration path is `$HOME/.antapi/config.json` (`%USERPROFILE%\.antapi\config.json` on Windows). `XDG_CONFIG_HOME` does not change this location. Use `--config` to override the path; file-based credentials are read from `credentials.json` beside the selected config file.
 
 Example local development profile:
 
@@ -44,7 +46,7 @@ Example local development profile:
 }
 ```
 
-Production profiles require your deployment's verified HTTPS origin. HTTP is allowed only for localhost or loopback IPs with explicit `development: true`. Origins require a hostname, an optional port in 1–65535, and no user information, query, fragment, or path other than `/`.
+The official Gateway is `https://api.antapi.dev`. Use `--gateway-url` or a profile only to select another environment; explicit malformed or missing configuration remains an error. HTTP is allowed only for localhost or loopback IPs with explicit `development: true`. Origins require a hostname, an optional port in 1–65535, and no user information, query, fragment, or path other than `/`.
 
 Provision `ANTAPI_API_KEY` through your private local environment; do not put the real value in shell history or chat. It takes precedence over `credentials.json` beside the configuration file:
 
@@ -94,4 +96,4 @@ Repeating the same inputs verifies and reuses the existing files; mismatched inp
 
 ## Releases
 
-API, CLI, and product Skills use independent versions. Check the product Skill's declared CLI compatibility before upgrading; the WHOIS Skill supports stable CLI `>=0.1.0 <1.0.0`. Release archives pin a source commit and checksums. CI validates changes and does not publish automatically on push or tag.
+API, CLI, and product Skills use independent versions. The WHOIS Skill does not depend on the CLI. Release archives pin a source commit and checksums. CI validates changes and does not publish automatically on push or tag.

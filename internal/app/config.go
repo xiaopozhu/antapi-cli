@@ -32,6 +32,8 @@ type runtimeConfig struct {
 
 var errConfiguration = errors.New("configuration")
 
+const defaultGatewayURL = "https://api.antapi.dev"
+
 func defaultConfigPath() (string, error) {
 	root, err := os.UserHomeDir()
 	if err != nil {
@@ -59,6 +61,7 @@ func readJSON(path string, target any) error {
 }
 
 func loadConfig(path, name, gateway, core string) (runtimeConfig, error) {
+	explicitPath := path != ""
 	if path == "" {
 		var err error
 		path, err = defaultConfigPath()
@@ -68,7 +71,12 @@ func loadConfig(path, name, gateway, core string) (runtimeConfig, error) {
 	}
 	var config settings
 	if readJSON(path, &config) != nil {
-		return runtimeConfig{}, errConfiguration
+		_, statErr := os.Stat(path)
+		// 仅缺少默认配置文件时启用官方配置；显式配置、指定 Profile 或损坏文件仍报错。
+		if explicitPath || name != "" || !errors.Is(statErr, os.ErrNotExist) {
+			return runtimeConfig{}, errConfiguration
+		}
+		config = settings{DefaultProfile: "default", Profiles: map[string]profile{"default": {GatewayURL: defaultGatewayURL}}}
 	}
 	if name == "" {
 		name = config.DefaultProfile

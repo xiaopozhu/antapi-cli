@@ -268,6 +268,20 @@ func TestInvalidURLFlagPrecedesConfiguration(t *testing.T) {
 	}
 }
 
+func TestEmptyConfigAndProfileFlagsPrecedeConfiguration(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("ANTAPI_API_KEY", "")
+	for _, flag := range []string{"--config", "--profile"} {
+		t.Run(flag, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := Run(context.Background(), []string{"antapi", flag, "", "whois", "tlds", "--json"}, &stdout, &stderr, BuildInfo{})
+			if code != 2 || stdout.Len() != 0 || stderr.String() != i18n.InvalidInvocation+"\n" {
+				t.Fatalf("code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
 func TestMalformedOriginFlagsPrecedeConfiguration(t *testing.T) {
 	for _, origin := range []string{"https://:443", "https://example.com:", "https://example.com:0", "https://example.com:65536", "https://example.com:abc", "https://::1", "https://[example.com]"} {
 		for _, flag := range []string{"--gateway-url", "--core-url"} {
