@@ -8,6 +8,18 @@ The official AntAPI command-line client for terminal users and scripts; [AntAPI 
 
 WHOIS lookup, TLD coverage, profiles, JSON output, and five-platform release-candidate packaging are implemented. The first candidate is `v0.1.0`; a stable release has not been published yet. Development builds report `dev`. Batch jobs, login, and automatic retries are not implemented.
 
+## First use
+
+Run `antapi setup` for platform-specific hidden-input instructions, create your project key in Console, then configure it locally and run `antapi doctor`. No Gateway setting or configuration file is needed for the official service.
+
+```bash
+antapi setup
+antapi doctor
+antapi whois tlds --json
+```
+
+`setup` prints guidance without reading or saving keys. `doctor` checks configuration locally, hides credentials, and makes no network request; `doctor --json` is available for scripts. A successful local check does not verify remote key permissions or service availability. The hidden-input environment setting lasts for the current terminal; repeat it in a new terminal or use your secret manager. The final TLD command makes a free authenticated API request when you choose to run it. Paid domain lookups require reviewing endpoint pricing first.
+
 ## Usage
 
 ```bash

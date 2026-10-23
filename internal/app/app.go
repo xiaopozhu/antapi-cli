@@ -26,7 +26,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, info Buil
 		return cli.Exit(i18n.InvalidInvocation, 2)
 	}
 	command := &cli.Command{
-		Name: "antapi", Usage: i18n.AppUsage, Version: info.Version,
+		Name: "antapi", Usage: i18n.AppUsage, Description: i18n.AppDescription, Version: info.Version,
 		Writer: stdout, ErrWriter: io.Discard, HideHelpCommand: true,
 		OnUsageError: usageError,
 		Flags: []cli.Flag{
@@ -57,6 +57,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, info Buil
 			},
 		}},
 	}
+	command.Commands = append(command.Commands, onboardingCommands(stdout, stderr, usageError)...)
 	if err := command.Run(ctx, args); err != nil {
 		var exitCoder cli.ExitCoder
 		if errors.As(err, &exitCoder) && exitCoder.ExitCode() == 2 {
@@ -77,19 +78,9 @@ func whoisCommand(stdout io.Writer, usageError cli.OnUsageErrorFunc) *cli.Comman
 			if (lookup && (count != 1 || !validDomain(command.Args().First()))) || (!lookup && count != 0) {
 				return invalid()
 			}
-			for _, name := range []string{"gateway-url", "core-url"} {
-				if command.IsSet(name) && !validOrigin(command.String(name), true) {
-					return invalid()
-				}
-			}
-			for _, name := range []string{"config", "profile"} {
-				if command.IsSet(name) && command.String(name) == "" {
-					return invalid()
-				}
-			}
-			config, err := loadConfig(command.String("config"), command.String("profile"), command.String("gateway-url"), command.String("core-url"))
+			config, err := commandConfig(command)
 			if err != nil {
-				return &runtimeError{Code: i18n.ConfigurationError}
+				return err
 			}
 			path := "/whois/v1/tlds"
 			if lookup {

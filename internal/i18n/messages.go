@@ -4,6 +4,7 @@ package i18n
 const (
 	Redacted           = "[redacted]"
 	AppUsage           = "AntAPI command-line client"
+	AppDescription     = "New to AntAPI? Run antapi setup for a quick start, then antapi doctor to check local configuration."
 	VersionUsage       = "Show version and build information"
 	VersionFormat      = "antapi %s (commit %s, built %s)\n"
 	JSONUsage          = "Print machine-readable JSON"
@@ -23,4 +24,11 @@ const (
 	PlatformError      = "CLI_PLATFORM_ERROR"
 	APICodeFormat      = " api_code=%d"
 	RequestIDFormat    = " request_id=%s"
+	SetupUsage         = "Show first-use setup steps without reading or saving credentials"
+	DoctorUsage        = "Check local configuration without making an API request"
+	DoctorSetupHint    = "Local configuration needs attention. Run antapi setup; check any explicitly selected config or profile."
+	DoctorReady        = "Local configuration is ready.\nGateway: %s\nAPI key: configured (value hidden)\nNo network request was made; this does not verify the remote key or service.\nNext: antapi whois tlds --json\nDomain lookups use Credits; review endpoint pricing before running them.\n"
+	SetupShell         = "Bash / Zsh (macOS and Linux):\n  read -rs ANTAPI_API_KEY && export ANTAPI_API_KEY; printf '\\n'\nRun this line, then paste your key into the hidden input and press Enter. This setting applies to this terminal session."
+	SetupPowerShell    = "PowerShell 7 (Windows):\n  $env:ANTAPI_API_KEY = Read-Host 'AntAPI API key' -MaskInput\nInput is hidden. This setting applies to this terminal session."
+	SetupGuide         = "AntAPI quick start\n\n1. Create a project API key in Console (open Console from https://antapi.dev).\n   Keep the key private; never paste it into chat or command arguments.\n\n2. Configure your key locally. The official Gateway is %s; no URL or config file is needed.\n\n%s\n\n3. Check your local configuration:\n  antapi doctor\n\n4. When ready, make a free coverage request:\n  antapi whois tlds --json\n\nFor a paid domain lookup, review pricing first:\n  antapi whois lookup example.com --json\n\nFor new terminals, repeat the hidden-input step or provision ANTAPI_API_KEY through your secret manager.\nThis guide saves no key and makes no network request. More: https://antapi.dev/cli\n"
 )
