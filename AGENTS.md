@@ -1,6 +1,6 @@
 # AntAPI CLI 协作规则
 
-先读 `README.md`，再确认主仓库的三仓库协同发布设计。
+先读 `README.md`，再确认主仓库的两仓库协同发布规范（`antapi` + `antapi-cli`）。
 
 - 本仓库是本地 CLI，不是 AntAPI 的第六个后端服务；不得改变主仓库两库五应用边界。
 - Go module 为 `github.com/xiaopozhu/antapi-cli`，使用 `urfave/cli/v3`。代码注释与工程文档使用中文；用户可见文案集中在 `internal/i18n/`。
