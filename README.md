@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-The official AntAPI command-line client for terminal users and scripts; [AntAPI Skills](https://github.com/xiaopozhu/antapi-skills) can be installed independently. It uses your platform API key and Credits through the public Gateway.
+The official AntAPI command-line client for terminal users and scripts. It uses your platform API key and USD balance through the public Gateway.
 
 ## Status
 
@@ -113,4 +113,6 @@ Repeating the same inputs verifies and reuses the existing files; mismatched inp
 
 ## Releases
 
-API, CLI, and product Skills use independent versions. The WHOIS Skill does not depend on the CLI. Release archives pin a source commit and checksums. CI validates changes and does not publish automatically on push or tag.
+API and CLI use independent versions. Release archives pin a source commit and checksums.
+
+The `CI` workflow (`.github/workflows/ci.yml`) validates changes on push, pull requests, and manual dispatch. The `Release` workflow (`.github/workflows/release.yml`) runs on canonical `vX.Y.Z` tag pushes and manual `workflow_dispatch`: it verifies the pinned commit, builds the five-platform candidate via `scripts/build-release.sh`, uploads the candidate as a workflow artifact, and publishes an immutable GitHub Release (with `SHA256SUMS` and `manifest.json`) without overwriting existing versions. Supported API products are declared in `supported-apis.json`; when `ANTAPI_SYNC_TOKEN` is configured, publishing a release automatically dispatches a `cli-release-published` event to `xiaopozhu/antapi` so Core API `client_releases`, Admin, Console, and Site stay in sync without manual edits.

@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-AntAPI 官方本地客户端，供终端用户和自动化脚本使用；产品 Skills 可以独立安装。平台 AK 与 Credits 沿用 Gateway 合同，不访问 Core 私有接口、数据库或 Own API 内网。
+AntAPI 官方本地客户端，供终端用户和自动化脚本使用。平台 AK 与 USD 余额沿用 Gateway 合同，不访问 Core 私有接口、数据库或 Own API 内网。
 
 ## 当前状态
 
@@ -114,4 +114,6 @@ Tar 根成员为 `antapi`，ZIP 根成员为 `antapi.exe`。`SHA256SUMS` 包含�
 
 ## 版本发布
 
-API、CLI 和产品 Skills 独立版本。升级前核对 Skill 声明的 CLI 兼容范围；WHOIS Skill 支持稳定 CLI `>=0.1.0 <1.0.0`。发布归档固定源码 commit 与校验和。CI 只验证，不在 push/tag 时自动发布。
+API 和 CLI 使用独立版本。发布归档固定源码 commit 与校验和。
+
+`CI` 工作流（`.github/workflows/ci.yml`）在 push、PR 和手动触发时执行验证。`Release` 工作流（`.github/workflows/release.yml`）在推送规范 `vX.Y.Z` tag 或手动 `workflow_dispatch` 时触发：校验固定源码 commit 后复用 `scripts/build-release.sh` 构建五平台候选制品、上传为 Workflow Artifact，并创建不可覆盖已有版本的 GitHub Release（附 `SHA256SUMS` 与 `manifest.json`，手动触发时可关闭 `publish` 仅生成候选制品）。CLI 支持的 API 产品在 `supported-apis.json` 中声明；配置 `ANTAPI_SYNC_TOKEN` Secret 后，发版完成会自动向 `xiaopozhu/antapi` 派发 `cli-release-published` 事件，自动同步 Core API `client_releases` 配置并更新 Admin、Console 与 Site。

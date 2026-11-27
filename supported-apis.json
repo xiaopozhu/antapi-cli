@@ -1,0 +1,7 @@
+[
+  { "product": "whois", "api_major": "v1" },
+  { "product": "web", "api_major": "v1" },
+  { "product": "ocr", "api_major": "v1" },
+  { "product": "asr", "api_major": "v1" },
+  { "product": "tts", "api_major": "v1" }
+]

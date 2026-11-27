@@ -8,7 +8,7 @@
 - Help、Version、参数校验必须在读取凭据和建立网络连接前完成。
 - 保持 `--json` stdout 可解析，诊断写 stderr。错误不得回显 AK、认证头、任意原始参数或响应正文。
 - 只显示平台给出的金额和费用事实，不实现独立计价。超时不能推断未执行；写请求不得自动换幂等键重提。
-- 正式发布由 `antapi` 总入口发起，固定源码 commit 与制品摘要，禁止覆盖已发布版本。
+- 本仓库的 `Release` 工作流负责基于固定源码 commit 构建五平台制品并发布不可变 GitHub Release（附 `SHA256SUMS` 与 `manifest.json`，禁止覆盖已发布版本）；支持的 API 清单在 `supported-apis.json` 中声明，发版后若已配置 `ANTAPI_SYNC_TOKEN` 会自动向 `xiaopozhu/antapi` 派发 `cli-release-published` 事件以同步 Core API 配置与站点。
 - 不创建实际 API 功能的空壳命令，不将未实现能力标记为可用。
 - 修改后运行 `make verify`；网络及重试行为变更需要真实 HTTP 测试服务验证。
 - 不提交或推送，除非用户明确要求。
