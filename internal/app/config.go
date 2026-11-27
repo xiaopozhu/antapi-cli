@@ -26,8 +26,9 @@ type settings struct {
 }
 type runtimeConfig struct {
 	profile
-	Key     string
-	Timeout time.Duration
+	Key             string
+	Timeout         time.Duration
+	TimeoutExplicit bool
 }
 
 var errConfiguration = errors.New("configuration")
@@ -94,10 +95,11 @@ func loadConfig(path, name, gateway, core string) (runtimeConfig, error) {
 	if !validOrigin(selected.GatewayURL, selected.Development) || (selected.CoreURL != "" && !validOrigin(selected.CoreURL, selected.Development)) {
 		return runtimeConfig{}, errConfiguration
 	}
+	timeoutExplicit := selected.TimeoutSeconds != 0
 	if selected.TimeoutSeconds == 0 {
 		selected.TimeoutSeconds = 30
 	}
-	if selected.TimeoutSeconds < 1 || selected.TimeoutSeconds > 120 {
+	if selected.TimeoutSeconds < 1 || selected.TimeoutSeconds > 240 {
 		return runtimeConfig{}, errConfiguration
 	}
 	key := os.Getenv("ANTAPI_API_KEY")
@@ -121,7 +123,7 @@ func loadConfig(path, name, gateway, core string) (runtimeConfig, error) {
 	if key == "" || len(key) > 4096 || strings.ContainsAny(key, " \t\r\n") {
 		return runtimeConfig{}, errConfiguration
 	}
-	return runtimeConfig{profile: selected, Key: key, Timeout: time.Duration(selected.TimeoutSeconds) * time.Second}, nil
+	return runtimeConfig{profile: selected, Key: key, Timeout: time.Duration(selected.TimeoutSeconds) * time.Second, TimeoutExplicit: timeoutExplicit}, nil
 }
 
 func validOrigin(raw string, development bool) bool {

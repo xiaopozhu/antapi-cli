@@ -42,20 +42,26 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, info Buil
 			}
 			return cli.ShowAppHelp(command)
 		},
-		Commands: []*cli.Command{whoisCommand(stdout, usageError), {
-			Name: "version", Usage: i18n.VersionUsage, OnUsageError: usageError,
-			Flags: []cli.Flag{&cli.BoolFlag{Name: "json", Usage: i18n.JSONUsage, OnlyOnce: true}},
-			Action: func(_ context.Context, command *cli.Command) error {
-				if command.Args().Len() != 0 {
-					return cli.Exit(i18n.InvalidInvocation, 2)
-				}
-				if command.Bool("json") {
-					return json.NewEncoder(stdout).Encode(info)
-				}
-				_, err := fmt.Fprintf(stdout, i18n.VersionFormat, info.Version, info.Commit, info.BuiltAt)
-				return err
-			},
-		}},
+		Commands: []*cli.Command{
+			whoisCommand(stdout, usageError),
+			webCommand(stdout, usageError),
+			ocrCommand(stdout, usageError),
+			asrCommand(stdout, usageError),
+			ttsCommand(stdout, usageError),
+			{
+				Name: "version", Usage: i18n.VersionUsage, OnUsageError: usageError,
+				Flags: []cli.Flag{&cli.BoolFlag{Name: "json", Usage: i18n.JSONUsage, OnlyOnce: true}},
+				Action: func(_ context.Context, command *cli.Command) error {
+					if command.Args().Len() != 0 {
+						return cli.Exit(i18n.InvalidInvocation, 2)
+					}
+					if command.Bool("json") {
+						return json.NewEncoder(stdout).Encode(info)
+					}
+					_, err := fmt.Fprintf(stdout, i18n.VersionFormat, info.Version, info.Commit, info.BuiltAt)
+					return err
+				},
+			}},
 	}
 	command.Commands = append(command.Commands, onboardingCommands(stdout, stderr, usageError)...)
 	if err := command.Run(ctx, args); err != nil {

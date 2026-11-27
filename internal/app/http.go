@@ -1,22 +1,36 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/xiaopozhu/antapi-cli/internal/i18n"
 )
 
-const maxResponseBytes = 1 << 20
+const (
+	maxResponseBytes      = 1 << 20
+	maxToolResponseBytes  = 4 << 20
+	maxTTSAudioBytes      = 86400044
+	maxOCRFileBytes       = 100 << 20
+	maxASRFileBytes       = 8 << 20
+	maxTTSBodyBytes       = 64 << 10
+	defaultToolTimeout    = 40 * time.Second
+	defaultLongAPITimeout = 240 * time.Second
+)
 
 var safeIdentity = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 var safeAtoms = regexp.MustCompile(`^[0-9]{1,40}$`)
@@ -25,6 +39,7 @@ type responseMetadata struct {
 	HTTPStatus        int    `json:"http_status"`
 	RequestID         string `json:"request_id,omitempty"`
 	ReceiptID         string `json:"receipt_id,omitempty"`
+	DebitAtoms        string `json:"debit_atoms,omitempty"`
 	CreditsDebitAtoms string `json:"credits_debit_atoms,omitempty"`
 }
 type commandResult struct {
@@ -71,13 +86,7 @@ func filteredHeader(value, key string, pattern *regexp.Regexp) string {
 	return value
 }
 
-func gatewayGET(ctx context.Context, config runtimeConfig, path string) (commandResult, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(config.GatewayURL, "/")+path, nil)
-	if err != nil {
-		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
-	}
-	request.Header.Set("Authorization", "Bearer "+config.Key)
-	request.Header.Set("Accept", "application/json")
+func newGatewayClient(timeout time.Duration) (*http.Client, func()) {
 	// 每次只执行一个请求；不重定向，不复用连接，避免 net/http 的透明请求重放。
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DisableKeepAlives = true
@@ -93,26 +102,31 @@ func gatewayGET(ctx context.Context, config runtimeConfig, path string) (command
 	}
 	// 同时覆盖继承的 ALPN，防止协议被禁用后仍协商 h2。
 	transport.TLSClientConfig.NextProtos = []string{"http/1.1"}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: config.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := client.Do(request)
-	if err != nil {
-		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	client := &http.Client{Transport: transport, Timeout: timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return client, transport.CloseIdleConnections
+}
+
+func extractMetadata(response *http.Response, key string) responseMetadata {
+	return responseMetadata{
+		HTTPStatus:        response.StatusCode,
+		RequestID:         filteredHeader(response.Header.Get("X-Request-ID"), key, safeIdentity),
+		ReceiptID:         filteredHeader(response.Header.Get("X-AntAPI-Receipt-ID"), key, safeIdentity),
+		DebitAtoms:        filteredHeader(response.Header.Get("X-AntAPI-Debit-Atoms"), key, safeAtoms),
+		CreditsDebitAtoms: filteredHeader(response.Header.Get("X-AntAPI-Credits-Debit-Atoms"), key, safeAtoms),
 	}
-	defer response.Body.Close()
-	metadata := responseMetadata{HTTPStatus: response.StatusCode,
-		RequestID:         filteredHeader(response.Header.Get("X-Request-ID"), config.Key, safeIdentity),
-		ReceiptID:         filteredHeader(response.Header.Get("X-AntAPI-Receipt-ID"), config.Key, safeIdentity),
-		CreditsDebitAtoms: filteredHeader(response.Header.Get("X-AntAPI-Credits-Debit-Atoms"), config.Key, safeAtoms)}
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
-	if err != nil || len(body) > maxResponseBytes {
+}
+
+func decodeGatewayJSON(response *http.Response, key string, limit int64) (commandResult, error) {
+	metadata := extractMetadata(response, key)
+	body, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err != nil || int64(len(body)) > limit {
 		return commandResult{}, &runtimeError{Code: i18n.ResponseError, Metadata: metadata}
 	}
 	var envelope struct {
 		Code *uint32 `json:"code"`
 		Data any     `json:"data"`
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	if decoder.Decode(&envelope) != nil || envelope.Code == nil {
 		return commandResult{}, &runtimeError{Code: i18n.ResponseError, Metadata: metadata}
@@ -124,7 +138,164 @@ func gatewayGET(ctx context.Context, config runtimeConfig, path string) (command
 	if response.StatusCode < 200 || response.StatusCode >= 300 || *envelope.Code != 0 {
 		return commandResult{}, &runtimeError{Code: i18n.PlatformError, API: envelope.Code, Metadata: metadata}
 	}
-	return commandResult{Code: *envelope.Code, Data: normalizeData(envelope.Data, "", config.Key), Metadata: metadata}, nil
+	return commandResult{Code: *envelope.Code, Data: normalizeData(envelope.Data, "", key), Metadata: metadata}, nil
+}
+
+func gatewayGET(ctx context.Context, config runtimeConfig, path string) (commandResult, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(config.GatewayURL, "/")+path, nil)
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	request.Header.Set("Authorization", "Bearer "+config.Key)
+	request.Header.Set("Accept", "application/json")
+	client, cleanup := newGatewayClient(config.Timeout)
+	defer cleanup()
+	response, err := client.Do(request)
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	defer response.Body.Close()
+	return decodeGatewayJSON(response, config.Key, maxResponseBytes)
+}
+
+func gatewayPOSTJSON(ctx context.Context, config runtimeConfig, path string, body []byte, idempotencyKey string, limit int64) (commandResult, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(config.GatewayURL, "/")+path, bytes.NewReader(body))
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	request.Header.Set("Authorization", "Bearer "+config.Key)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	if idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	client, cleanup := newGatewayClient(config.Timeout)
+	defer cleanup()
+	response, err := client.Do(request)
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	defer response.Body.Close()
+	return decodeGatewayJSON(response, config.Key, limit)
+}
+
+func gatewayPOSTMultipart(ctx context.Context, config runtimeConfig, path string, fields map[string]string, fileField, filePath string, maxFileBytes int64, idempotencyKey string, limit int64) (commandResult, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.ConfigurationError}
+	}
+	defer file.Close()
+
+	// 流式构造 multipart，避免把百兆文件整份读入内存。
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	go func() {
+		var writeErr error
+		defer func() {
+			_ = writer.Close()
+			_ = pw.CloseWithError(writeErr)
+		}()
+		for k, v := range fields {
+			if writeErr = writer.WriteField(k, v); writeErr != nil {
+				return
+			}
+		}
+		part, err := writer.CreateFormFile(fileField, filepath.Base(filePath))
+		if err != nil {
+			writeErr = err
+			return
+		}
+		written, err := io.Copy(part, io.LimitReader(file, maxFileBytes+1))
+		if err != nil {
+			writeErr = err
+			return
+		}
+		if written > maxFileBytes {
+			writeErr = io.ErrShortWrite
+		}
+	}()
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(config.GatewayURL, "/")+path, pr)
+	if err != nil {
+		_ = pr.Close()
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	request.Header.Set("Authorization", "Bearer "+config.Key)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request.Header.Set("Accept", "application/json")
+	if idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	client, cleanup := newGatewayClient(config.Timeout)
+	defer cleanup()
+	response, err := client.Do(request)
+	if err != nil {
+		_ = pr.Close()
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	defer response.Body.Close()
+	return decodeGatewayJSON(response, config.Key, limit)
+}
+
+func gatewayPOSTJSONToFile(ctx context.Context, config runtimeConfig, path string, body []byte, idempotencyKey, outputPath string, limit int64) (commandResult, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(config.GatewayURL, "/")+path, bytes.NewReader(body))
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	request.Header.Set("Authorization", "Bearer "+config.Key)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "audio/wav, application/json")
+	if idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	client, cleanup := newGatewayClient(config.Timeout)
+	defer cleanup()
+	response, err := client.Do(request)
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.NetworkError}
+	}
+	defer response.Body.Close()
+
+	metadata := extractMetadata(response, config.Key)
+	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
+	if response.StatusCode < 200 || response.StatusCode >= 300 || contentType == "application/json" {
+		return decodeGatewayJSON(response, config.Key, maxToolResponseBytes)
+	}
+
+	dir := filepath.Dir(outputPath)
+	tmp, err := os.CreateTemp(dir, ".antapi-tts-*.tmp")
+	if err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.ConfigurationError, Metadata: metadata}
+	}
+	tmpPath := tmp.Name()
+	success := false
+	defer func() {
+		if !success {
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	written, err := io.Copy(tmp, io.LimitReader(response.Body, limit+1))
+	if err != nil || written == 0 || written > limit {
+		return commandResult{}, &runtimeError{Code: i18n.ResponseError, Metadata: metadata}
+	}
+	if err = tmp.Close(); err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.ConfigurationError, Metadata: metadata}
+	}
+	if err = os.Rename(tmpPath, outputPath); err != nil {
+		return commandResult{}, &runtimeError{Code: i18n.ConfigurationError, Metadata: metadata}
+	}
+	success = true
+	return commandResult{
+		Code: 0,
+		Data: map[string]any{
+			"output":       outputPath,
+			"bytes":        written,
+			"content_type": contentType,
+		},
+		Metadata: metadata,
+	}, nil
 }
 
 func normalizeData(value any, name, key string) any {

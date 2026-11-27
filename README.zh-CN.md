@@ -6,7 +6,7 @@ AntAPI 官方本地客户端，供终端用户和自动化脚本使用；产品 
 
 ## 当前状态
 
-已实现 WHOIS 单域名查询、TLD 覆盖列表、帮助、版本和固定源码候选制品构建。首个预期版本为 `v0.1.0`，目前尚未正式发布，不提供已发布安装命令。开发构建显示 `dev`；未实现批量任务、登录或自动重试。
+已实现 WHOIS 单域名查询与 TLD 覆盖列表、网页搜索与抓取（`web`）、文档 OCR（`ocr`）、语音转文字（`asr`）、文字转语音（`tts`）、帮助、版本和固定源码候选制品构建。开发构建显示 `dev`；未实现批量任务、登录或自动重试。
 
 ## 首次使用
 
@@ -28,13 +28,18 @@ antapi version --json
 antapi whois lookup example.com --json
 antapi whois lookup 例子.中国 --json
 antapi whois tlds --json
+antapi web search "antapi docs" --count 5 --need-content --json
+antapi web fetch https://antapi.dev --json
+antapi ocr recognize ./document.pdf --purpose text_recognition --json
+antapi asr transcribe ./recording.wav --json
+antapi tts synthesize --text "Hello AntAPI" --voice stella --output ./speech.wav --json
 ```
 
 官方服务只需在本机私下配置 `ANTAPI_API_KEY`。CLI 默认使用 `https://api.antapi.dev`，无需先创建配置文件。
 
-`--config PATH`、`--profile NAME`、`--gateway-url ORIGIN`、`--core-url ORIGIN` 为非敏感配置覆盖。推荐放在 `whois` 前。AK 不接受命令参数；通过私密运行环境注入 `ANTAPI_API_KEY`，不要把真实值放入 shell 历史。
+`--config PATH`、`--profile NAME`、`--gateway-url ORIGIN`、`--core-url ORIGIN` 为非敏感配置覆盖，放在产品子命令（`whois`、`web`、`ocr`、`asr`、`tts`）之前。AK 不接受命令参数；通过私密运行环境注入 `ANTAPI_API_KEY`，不要把真实值放入 shell 历史。
 
-查询只访问 Gateway 的 `/whois/v1/domains/{domain}`、`/whois/v1/tlds`，不调用 Core。`core_url` 仅保留集中配置位置供后续公开 Catalog 兼容核验；不会向 Core 发送 AK。
+各命令仅访问 Gateway 公开路径（`/whois/v1/domains/{domain}`、`/whois/v1/tlds`、`/web/v1/search`、`/web/v1/fetch`、`/ocr/v1/recognize`、`/asr/v1/transcribe`、`/tts/v1/synthesize`），不调用 Core。付费 POST 命令支持可选 `--idempotency-key`，绝不自动换键重提。`core_url` 仅保留集中配置位置供后续公开 Catalog 兼容核验；不会向 Core 发送 AK。
 
 域名支持 Unicode/Punycode 与 IDNA 的 Unicode 点分隔符（`。`、`．`、`｡`）；请求保留原始 Unicode 路径，由公开 API 执行完整 IDNA 和注册域校验。CLI 只检查路径安全与裸域名结构；拒绝协议、路径、空 label、空格、控制字符、端口、百分号和 query 等不安全输入。Help、Version 和参数错误先于配置、凭据与网络。
 
@@ -56,7 +61,7 @@ antapi whois tlds --json
 }
 ```
 
-官方 Gateway 固定为 `https://api.antapi.dev`；仅在选择其他环境时使用 `--gateway-url` 或 Profile 覆盖。显式配置文件缺失、损坏或 Profile 不存在仍报错。HTTP 仅在显式 `development: true` 且 hostname 为 localhost 或 loopback IP 时允许。Origin 必须有 hostname，显式端口范围为 1–65535，不含用户信息、路径（单独 `/` 可用）、query 或 fragment。请求不跟随重定向，30 秒默认超时（允许 1–120 秒），响应上限 1 MiB；收费与免费请求均不自动重试；Transport 显式限制为 HTTP/1 并禁用连接复用，避免 HTTP/2 REFUSED_STREAM 等透明重发。超时或断开不能推断未执行，需从 Console 检查平台记录。
+官方 Gateway 固定为 `https://api.antapi.dev`；仅在选择其他环境时使用 `--gateway-url` 或 Profile 覆盖。显式配置文件缺失、损坏或 Profile 不存在仍报错。HTTP 仅在显式 `development: true` 且 hostname 为 localhost 或 loopback IP 时允许。Origin 必须有 hostname，显式端口范围为 1–65535，不含用户信息、路径（单独 `/` 可用）、query 或 fragment。请求不跟随重定向，超时支持配置 1–240 秒（默认 WHOIS 30 秒、Web 40 秒、OCR/ASR/TTS 240 秒）；JSON 响应上限 WHOIS 为 1 MiB、Web/OCR/ASR 为 4 MiB，TTS 将 WAV 原子写入 `--output`（最大约 82.4 MiB）并在 stdout 输出元数据 JSON；收费与免费请求均不自动重试；Transport 显式限制为 HTTP/1 并禁用连接复用，避免 HTTP/2 REFUSED_STREAM 等透明重发。超时或断开不能推断未执行，需从 Console 检查平台记录。
 
 `ANTAPI_API_KEY` 优先于配置文件同目录的 `credentials.json`；凭据文件必须为常规文件且权限精确为 `0600`，不接受符号链接。格式如下，示例占位符必须替换为本人授权的 AK，文件不得提交：
 
@@ -68,13 +73,13 @@ Windows 不支持此 POSIX 文件权限合同，因此必须使用环境凭据�
 
 ## 输出协议
 
-`--json` 的 stdout 只输出一个 JSON 对象；目前省略 `--json` 时也输出同样结构。成功必须同时满足 HTTP 2xx 与平台 `code: 0`：
+`--json` 的 stdout 只输出一个 JSON 对象；目前省略 `--json` 时也输出同样结构。成功必须同时满足 HTTP 2xx 与平台 `code: 0`（`tts synthesize` 为二进制 `audio/wav`）：
 
 ```json
-{"code":0,"data":{"domain":{"queried":"example.com"},"registration":{"registered":true}},"metadata":{"http_status":200,"request_id":"req-123","receipt_id":"123","credits_debit_atoms":"100"}}
+{"code":0,"data":{"domain":{"queried":"example.com"},"registration":{"registered":true}},"metadata":{"http_status":200,"request_id":"req-123","receipt_id":"123","debit_atoms":"1000000"}}
 ```
 
-`data` 保留公开 API 结果；平台 ID、`*_id`/`*_ids` 与 `*_atoms` 均使用字符串，避免精度损失。metadata 仅提取允许的 Request ID、Receipt ID、Credits atoms，缺失时省略；CLI 不计算金额。不输出服务端 `error` 正文。
+`data` 保留公开 API 结果（`tts synthesize` 为 `{output, bytes, content_type}`）；平台 ID、`*_id`/`*_ids` 与 `*_atoms` 均使用字符串，避免精度损失。metadata 仅提取允许的 Request ID、Receipt ID、USD 扣费 atoms（`X-AntAPI-Debit-Atoms`，兼容旧 `X-AntAPI-Credits-Debit-Atoms`），缺失时省略；CLI 不计算金额。不输出服务端 `error` 正文。
 
 失败 stdout 为空，stderr 使用稳定的 `CLI_CONFIGURATION_ERROR`、`CLI_NETWORK_ERROR`、`CLI_INVALID_RESPONSE`、`CLI_PLATFORM_ERROR` 或 `CLI_EXECUTION_FAILED`，可附平台数值 `api_code` 与安全 Request ID。底层异常、原始参数和响应正文不会进入诊断。退出码：0 成功；1 配置、网络或平台错误；2 参数错误。
 

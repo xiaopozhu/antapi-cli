@@ -6,7 +6,7 @@ The official AntAPI command-line client for terminal users and scripts; [AntAPI 
 
 ## Status
 
-WHOIS lookup, TLD coverage, profiles, JSON output, and five-platform release-candidate packaging are implemented. The first candidate is `v0.1.0`; a stable release has not been published yet. Development builds report `dev`. Batch jobs, login, and automatic retries are not implemented.
+WHOIS lookup and TLD coverage, Web Search & Fetch (`web`), Document OCR (`ocr`), Speech-to-Text (`asr`), Text-to-Speech (`tts`), profiles, JSON output, and five-platform release-candidate packaging are implemented. Development builds report `dev`. Batch jobs, login, and automatic retries are not implemented.
 
 ## First use
 
@@ -28,13 +28,18 @@ antapi version --json
 antapi whois lookup example.com --json
 antapi whois lookup 例子.中国 --json
 antapi whois tlds --json
+antapi web search "antapi docs" --count 5 --need-content --json
+antapi web fetch https://antapi.dev --json
+antapi ocr recognize ./document.pdf --purpose text_recognition --json
+antapi asr transcribe ./recording.wav --json
+antapi tts synthesize --text "Hello AntAPI" --voice stella --output ./speech.wav --json
 ```
 
 Configure only `ANTAPI_API_KEY` privately in your local environment. The CLI defaults to `https://api.antapi.dev` and needs no configuration file for the official service.
 
-Root flags `--config PATH`, `--profile NAME`, `--gateway-url ORIGIN`, and `--core-url ORIGIN` override non-secret settings. Put them before `whois`. API keys are never command-line arguments.
+Root flags `--config PATH`, `--profile NAME`, `--gateway-url ORIGIN`, and `--core-url ORIGIN` override non-secret settings. Put them before the product subcommand (`whois`, `web`, `ocr`, `asr`, or `tts`). API keys are never command-line arguments.
 
-WHOIS commands call only `/whois/v1/domains/{domain}` and `/whois/v1/tlds` through the public Gateway. They do not access databases or the internal Own API. The optional `core_url` setting is reserved for future public Catalog checks; WHOIS does not call Core API or send keys there.
+Commands call only public Gateway paths (`/whois/v1/domains/{domain}`, `/whois/v1/tlds`, `/web/v1/search`, `/web/v1/fetch`, `/ocr/v1/recognize`, `/asr/v1/transcribe`, and `/tts/v1/synthesize`). They do not access databases or the internal Own API. Paid POST commands accept an optional `--idempotency-key` header and never automatically retry with a different key. The optional `core_url` setting is reserved for future public Catalog checks; commands do not call Core API or send keys there.
 
 Unicode and Punycode domains are supported, including Unicode dot separators (`。`, `．`, `｡`). The API performs full IDNA normalization. The CLI checks input safety and bare-domain structure, rejecting URL schemes, paths, empty labels, spaces, control characters, ports, percent escapes, and queries. Help, version, and argument validation run before configuration, credentials, or networking.
 
@@ -68,17 +73,17 @@ Provision `ANTAPI_API_KEY` through your private local environment; do not put th
 
 Replace the placeholder locally. The credentials file must be a regular, non-symlink file with POSIX mode `0600`; never commit it. Windows requires environment credentials because it does not provide this POSIX permission contract.
 
-Requests have a 30-second default timeout (configurable from 1–120 seconds) and a 1 MiB response limit. They do not follow redirects or automatically retry. HTTP/1 and disabled connection reuse prevent transparent transport retries. A timeout or disconnect does not establish whether execution or billing completed; check existing Console request records.
+Requests use a configurable timeout from 1–240 seconds (defaults: 30s for WHOIS, 40s for Web, 240s for OCR/ASR/TTS). JSON response limits are 1 MiB for WHOIS and 4 MiB for Web/OCR/ASR; TTS streams WAV audio atomically to `--output` (up to ~82.4 MiB) and writes metadata JSON to stdout. Requests do not follow redirects or automatically retry. HTTP/1 and disabled connection reuse prevent transparent transport retries. A timeout or disconnect does not establish whether execution or billing completed; check existing Console request records.
 
 ## Output
 
-`--json` writes one JSON object to stdout on success. Omitting it currently produces the same structure. Success requires HTTP 2xx and platform `code: 0`. Simplified illustrative response:
+`--json` writes one JSON object to stdout on success. Omitting it currently produces the same structure. Success requires HTTP 2xx and platform `code: 0` (or binary `audio/wav` for `tts synthesize`). Simplified illustrative response:
 
 ```json
-{"code":0,"data":{"domain":{"queried":"example.com"},"registration":{"registered":true}},"metadata":{"http_status":200,"request_id":"req-123","receipt_id":"123","credits_debit_atoms":"100"}}
+{"code":0,"data":{"domain":{"queried":"example.com"},"registration":{"registered":true}},"metadata":{"http_status":200,"request_id":"req-123","receipt_id":"123","debit_atoms":"1000000"}}
 ```
 
-`data` preserves the public API result. IDs, `*_id`/`*_ids`, and `*_atoms` are strings to preserve precision. Metadata includes only available, allowed Request ID, Receipt ID, and Credits atoms. The CLI does not calculate prices or expose the server's raw `error` body.
+`data` preserves the public API result (or `{output, bytes, content_type}` for `tts synthesize`). IDs, `*_id`/`*_ids`, and `*_atoms` are strings to preserve precision. Metadata includes only available, allowed Request ID, Receipt ID, and USD debit atoms (`X-AntAPI-Debit-Atoms`, plus legacy `X-AntAPI-Credits-Debit-Atoms` if returned). The CLI does not calculate prices or expose the server's raw `error` body.
 
 On failure, stdout is empty. Stderr uses `CLI_CONFIGURATION_ERROR`, `CLI_NETWORK_ERROR`, `CLI_INVALID_RESPONSE`, `CLI_PLATFORM_ERROR`, or `CLI_EXECUTION_FAILED`, optionally with a numeric `api_code` and safe Request ID. Raw exceptions, arguments, keys, and response bodies are excluded.
 
